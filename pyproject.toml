@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "provenance-recorder"
+version = "0.1.0"
+description = "Record and compare provenance of data analysis runs."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+
+authors = [
+  { name = "Alec", email = "alec@verifysync.dev" }
+]
+
+dependencies = [
+  "typer>=0.9.0",
+  "rich>=13.0.0"
+]
+
+[project.scripts]
+prov = "prov.cli:app"
+
+[tool.setuptools]
+packages = ["prov"]
+
+[tool.setuptools.package-data]
+prov = ["../schemas/*.json"]
+
