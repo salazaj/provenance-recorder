@@ -26,5 +26,5 @@ prov = "prov.cli:app"
 packages = ["prov"]
 
 [tool.setuptools.package-data]
-prov = ["../schemas/*.json"]
+prov = ["schemas/*.json"]
 

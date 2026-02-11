@@ -74,8 +74,6 @@ Scaffolding only. CLI spec and first commands next.
 
 ## License
 
-## License
-
 This project is licensed under the GNU Affero General Public License v3 (AGPL-3.0).
 
 The intent is to ensure that improvements and deployments of this tool remain
