@@ -1,85 +1,157 @@
 # provenance-recorder
 
-A small, honest tool that records **what inputs, code, environment, and parameters** produced a set of outputs — and can tell you **what changed between runs**.
+A minimal, local-first CLI tool for recording and explaining execution provenance.
 
-> Design goal: make it hard to lie to yourself about what you ran.
+It captures:
 
-This project is intentionally boring, explicit, and local-first.
+- Inputs (with hashes)
+- Parameters
+- Code revision metadata
+- Environment details
+- Output references
+
+And answers the operational question:
+
+> “What changed between runs?”
 
 ---
 
-## Philosophy
+## Who This Is For
 
-* **Verification over automation** – explicit inputs/outputs beat magic.
-* **Local-first** – everything lives in the repo; no servers required.
-* **Plain truth** – hashes, timestamps, manifests; no opinions.
-* **Bounded scope** – this records provenance; it does not manage workflows.
+This tool was built for small teams who need:
+
+    Reproducibility without orchestration overhead
+
+    Local-first auditability
+
+    A clear answer to “what changed?”
+
+It reflects the same philosophy used in my consulting work:
+explicit systems, bounded scope, and recovery over heroics.
 
 ---
 
-## Repo layout
+## Operational Context
+
+In small teams and research environments:
+
+- Outputs are generated without a reproducible record.
+- Parameters drift silently.
+- Code revisions alter results without trace.
+- Environment differences go unnoticed.
+- Reproducing a prior result requires guesswork.
+
+When results change, debugging becomes narrative-driven instead of evidence-driven.
+
+`provenance-recorder` provides a small, explicit provenance layer to reduce ambiguity.
+
+---
+
+## What This Demonstrates
+
+This project reflects practical experience in:
+
+- Reproducibility control
+- Drift detection
+- Structured metadata recording
+- Git-aware execution tracking
+- Audit-friendly JSON schema validation
+- Local-first tooling without workflow lock-in
+
+It is intentionally:
+
+- Explicit over implicit
+- Local over cloud-dependent
+- Bounded in scope
+- Data-oriented, not dashboard-oriented
+
+---
+
+## Core Capabilities
+
+### Record
+
+Capture:
+
+- Executed command
+- Input file hashes
+- Parameter sets
+- Git commit + branch + dirty state
+- Environment snapshot
+- Output references
+
+All metadata is stored under:
 
 ```
-provenance-recorder/
-├── pyproject.toml
-├── README.md
-├── LICENSE
-├── .gitignore
-├── prov/
-│   ├── __init__.py
-│   ├── cli.py            # Typer/Click entrypoint
-│   ├── config.py         # config loading + defaults
-│   ├── record.py         # run + record logic
-│   ├── diff.py           # compare two runs
-│   ├── hashing.py        # file hashing strategies
-│   ├── gitinfo.py        # git metadata helpers
-│   ├── env.py            # environment capture
-│   └── render.py         # human-readable reports
-├── schemas/
-│   └── run.schema.json   # JSON schema for run records
-├── examples/
-│   └── minimal-python/
-│       ├── data/
-│       ├── params.yaml
-│       └── run.sh
-└── tests/
-    └── test_diff.py
+.prov/runs/<run-id>/run.json
+
+```
+
+Validated against:
+
+
+```
+schemas/run.schema.json
+
 ```
 
 ---
 
-## What this does (eventually)
+### Diff
 
-* `prov init` – create a `.prov/` directory
-* `prov run` – wrap a command and record provenance
-* `prov record` – record provenance after an interactive run
-* `prov diff` – explain what changed between two runs
+Compare two runs and surface:
+
+- Code differences
+- Input changes
+- Parameter drift
+- Environment variation
+- Output reference differences
+
+Designed for:
+
+- Research reproducibility
+- Model training comparison
+- Data pipeline validation
+- Audit preparation
+- “Why did this change?” investigations
 
 ---
 
-## What this deliberately does *not* do
+## What This Is Not
 
-* No dashboards
-* No cloud sync
-* No auto-discovery magic
-* No statistical opinions
+- Not a workflow orchestrator
+- Not a CI system
+- Not a dashboard
+- Not a pipeline framework
+- Not a cloud service
+
+It is a small provenance control layer.
+
+---
+
+## Typical Engagement Context
+
+This tool is useful in environments where:
+
+- Results must be explainable
+- Compliance requires traceability
+- Teams need reproducibility without adopting heavy orchestration
+- Execution transparency matters more than automation
 
 ---
 
 ## Status
 
-Scaffolding only. CLI spec and first commands next.
+Active development.
+
+Core run recording and diff logic implemented.
+CLI stabilization and documentation ongoing.
 
 ---
 
 ## License
 
-This project is licensed under the GNU Affero General Public License v3 (AGPL-3.0).
+MIT License.
 
-The intent is to ensure that improvements and deployments of this tool remain
-transparent and auditable, especially when offered as a service.
-
-Commercial or alternative licensing may be available on a case-by-case basis
-for organizations with specific needs. Please open an issue or contact the
-maintainer to discuss.
-
+This tool is intentionally simple, local-first, and permissive.
+If you use it in research, internal infrastructure, or production environments, attribution is appreciated.

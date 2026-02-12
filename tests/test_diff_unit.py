@@ -1,13 +1,10 @@
+# tests/test_diff_unit.py
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from typer.testing import CliRunner
-from prov.cli import app
 from prov.diff import diff_runs
-
-runner = CliRunner()
 
 
 def _write_run(run_dir: Path, run_id: str, name: str, *, with_git: bool) -> None:
@@ -17,7 +14,6 @@ def _write_run(run_dir: Path, run_id: str, name: str, *, with_git: bool) -> None
         "name": name,
         "inputs": {"in.txt": {"hash": "aaa"}},
         "outputs": {"out.txt": {"hash": "bbb"}},
-        "params": None,
         "environment": {"python_version": "3.x", "platform": "linux"},
         "warnings": [],
     }
@@ -55,18 +51,4 @@ def test_git_missing_is_not_a_change(tmp_path: Path) -> None:
         fail_on="any",
     )
     assert code == 0  # because git_changed=false in this case
-
-
-def test_show_raw_json(prov_sandbox):
-    res = runner.invoke(app, ["show", "baseline", "--raw"])
-    assert res.exit_code == 0
-    obj = json.loads(res.stdout)
-    assert obj["run_id"] == "2026-02-11T16-08-36Z_bbbbbb"
-
-
-def test_show_hashes_text(prov_sandbox):
-    res = runner.invoke(app, ["show", "baseline", "--paths", "--hashes"])
-    assert res.exit_code == 0
-    assert "Inputs" in res.output
-    assert "h_in_1" in res.output  # from fixture
 

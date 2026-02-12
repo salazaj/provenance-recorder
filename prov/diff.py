@@ -2,16 +2,15 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from rich.console import Console
 from rich.table import Table
 
-from .config import Defaults
 from .indexdb import load_index
 from .runstore import Run, load_run
+from .output_json import build_diff_json
 
 console = Console()
 
@@ -33,20 +32,10 @@ def _diff_hashmaps(a: Dict[str, str], b: Dict[str, str]) -> Dict[str, List[str]]
     b_keys = set(b.keys())
     added = sorted(b_keys - a_keys)
     removed = sorted(a_keys - b_keys)
-    common = sorted(a_keys & b_keys)
-    changed: List[str] = []
-    unchanged: List[str] = []
-    for k in common:
-        if a[k] != b[k]:
-            changed.append(k)
-        else:
-            unchanged.append(k)
-    return {
-        "added": added,
-        "removed": removed,
-        "changed": changed,
-        "unchanged": unchanged,
-    }
+    common = a_keys & b_keys
+
+    changed = sorted(k for k in common if a[k] != b[k])
+    return {"added": added, "removed": removed, "changed": changed}
 
 
 def _params_fingerprint(run: Run) -> Optional[str]:
@@ -214,41 +203,37 @@ def diff_runs(
         truth_changed, diff_outputs, env_changed, warnings_changed, git_changed
     )
 
-    result_obj = {
-        "run_a": {
-            "run_id": ra.run_id,
-            "name": ra.name,
-            "path": str(ra.path),
-            "tags": a_tags,
-        },
-        "run_b": {
-            "run_id": rb.run_id,
-            "name": rb.name,
-            "path": str(rb.path),
-            "tags": b_tags,
-        },
-        "warnings": {"a": a_warn, "b": b_warn, "changed": warnings_changed},
-        "inputs": diff_inputs,
-        "outputs": diff_outputs,
-        "params": {"a": a_params, "b": b_params, "changed": params_changed},
-        "environment": {"a": a_env, "b": b_env, "changed": env_changed},
-        "git": {
+    warnings_obj = {"a": a_warn, "b": b_warn, "changed": warnings_changed} if show_warnings else None
+
+    result_obj = build_diff_json(
+        a={"run_id": ra.run_id, "name": ra.name, "tags": a_tags},
+        b={"run_id": rb.run_id, "name": rb.name, "tags": b_tags},
+        diff_inputs=diff_inputs,
+        diff_outputs=diff_outputs,
+        params={"a": a_params, "b": b_params, "changed": params_changed},
+        environment={"a": a_env, "b": b_env, "changed": env_changed},
+        git={
             "a": a_git,
             "b": b_git,
-            "recorded": {
-                "a": a_git.get("recorded", False),
-                "b": b_git.get("recorded", False),
-            },
             "changed": git_changed,
             "reasons": git_reasons,
+            "recorded": {
+                "a": bool(a_git.get("recorded", False)),
+                "b": bool(b_git.get("recorded", False)),
+            },
         },
-        "summary": {"truth_changed": truth_changed, "any_changed": any_changed},
-    }
+        warnings=warnings_obj,
+        truth_changed=truth_changed,
+        any_changed=any_changed,
+        include_paths=show_paths,          # <-- THIS is the main gate
+    )
+
+    if out_format == "json" and abs_paths:
+        raise ValueError("--abs-paths is supported only for text output")
 
     if out_format == "json":
         console.print_json(json.dumps(result_obj))
     else:
-
         def _tag_suffix(tags: List[str]) -> str:
             return f" ({', '.join(tags)})" if tags else ""
 
@@ -257,23 +242,24 @@ def diff_runs(
         console.print(f"B: {rb.name}{_tag_suffix(b_tags)}  ({rb.path})")
         console.print("")
 
-        print_warn_details = show_paths or show_warnings
-        console.print("[bold]Warnings[/bold]")
-        if a_warn:
-            console.print(f"- A: {len(a_warn)} warning(s)")
-            if print_warn_details:
+        if show_warnings:
+            console.print("[bold]Warnings[/bold]")
+            if a_warn:
+                console.print(f"- A: {len(a_warn)} warning(s)")
                 for w in a_warn:
                     console.print(f"  - {w}")
-        else:
-            console.print("- A: (none)")
-        if b_warn:
-            console.print(f"- B: {len(b_warn)} warning(s)")
-            if print_warn_details:
+            else:
+                console.print("- A: (none)")
+
+            if b_warn:
+                console.print(f"- B: {len(b_warn)} warning(s)")
                 for w in b_warn:
                     console.print(f"  - {w}")
-        else:
-            console.print("- B: (none)")
-        console.print("")
+            else:
+                console.print("- B: (none)")
+
+            console.print("")
+
 
         t = Table(title="Summary", show_lines=False)
         t.add_column("Section", style="bold")

@@ -4,7 +4,7 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version as _dist_version
 
 # Fallback for dev/editable/uninstalled contexts
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 
 # IMPORTANT: this must match your distribution name in pyproject.toml
 _DIST_NAME = "provenance-recorder"

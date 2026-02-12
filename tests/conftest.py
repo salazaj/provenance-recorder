@@ -8,10 +8,10 @@ from typing import Any, Dict, Optional
 
 import pytest
 from typer.testing import CliRunner
-from prov.cli import app
+
 
 @pytest.fixture
-def runner():
+def runner() -> CliRunner:
     return CliRunner()
 
 
@@ -92,12 +92,16 @@ def prov_sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ProvSandbox
             "describe": "v0.1.0",
         },
     )
+
     _mk_run(
         prov_dir,
         run2,
         name="t",
         timestamp="2026-02-11T16:08:36Z",
-        inputs={"data/in.txt": {"hash": "h_in_1"}, "data/new.txt": {"hash": "h_in_2"}},
+        inputs={
+            "data/in.txt": {"hash": "h_in_1"},
+            "data/new.txt": {"hash": "h_in_2"},
+        },
         outputs={},  # simulate removed outputs in diff
         params_hash="h_params",
         warnings=["string warning ok too"],
