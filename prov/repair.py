@@ -104,13 +104,11 @@ def rebuild_runs_from_disk(
             else:
                 warnings.append(f"Missing timestamp in {run_json} and could not infer from run_id")
 
-        # portable path only
         runs.append(
             {
                 "run_id": run_id,
                 "name": name,
                 "timestamp": ts,
-                "path": str(Path(Defaults.prov_dir_name) / Defaults.runs_dir_name / d.name),
             }
         )
         runs.sort(key=lambda r: (r.get("timestamp") or "", r.get("run_id") or ""))

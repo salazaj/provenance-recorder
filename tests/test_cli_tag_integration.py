@@ -45,13 +45,11 @@ def prov_tree(runner):
                 "run_id": run1,
                 "name": "oldest",
                 "timestamp": "2026-02-09T14:06:45Z",
-                "path": f".prov/runs/{run1}",
             },
             {
                 "run_id": run2,
                 "name": "latest",
                 "timestamp": "2026-02-11T16:08:36Z",
-                "path": f".prov/runs/{run2}",
             },
         ]
         _write_index(prov_dir, runs=runs, tags={})

@@ -1,69 +1,12 @@
 # provenance-recorder
 
-A minimal, local-first CLI tool for recording and explaining execution provenance.
+A minimal, local-first CLI tool for recording and comparing execution provenance.
 
-It captures:
+It captures structured metadata about command execution and answers a practical operational question:
 
-- Inputs (with hashes)
-- Parameters
-- Code revision metadata
-- Environment details
-- Output references
+> What changed between runs?
 
-And answers the operational question:
-
-> “What changed between runs?”
-
----
-
-## Who This Is For
-
-This tool was built for small teams who need:
-
-    Reproducibility without orchestration overhead
-
-    Local-first auditability
-
-    A clear answer to “what changed?”
-
-It reflects the same philosophy used in my consulting work:
-explicit systems, bounded scope, and recovery over heroics.
-
----
-
-## Operational Context
-
-In small teams and research environments:
-
-- Outputs are generated without a reproducible record.
-- Parameters drift silently.
-- Code revisions alter results without trace.
-- Environment differences go unnoticed.
-- Reproducing a prior result requires guesswork.
-
-When results change, debugging becomes narrative-driven instead of evidence-driven.
-
-`provenance-recorder` provides a small, explicit provenance layer to reduce ambiguity.
-
----
-
-## What This Demonstrates
-
-This project reflects practical experience in:
-
-- Reproducibility control
-- Drift detection
-- Structured metadata recording
-- Git-aware execution tracking
-- Audit-friendly JSON schema validation
-- Local-first tooling without workflow lock-in
-
-It is intentionally:
-
-- Explicit over implicit
-- Local over cloud-dependent
-- Bounded in scope
-- Data-oriented, not dashboard-oriented
+Designed for environments where reproducibility, traceability, and explainability matter more than orchestration.
 
 ---
 
@@ -71,81 +14,112 @@ It is intentionally:
 
 ### Record
 
-Capture:
+Captures:
 
-- Executed command
-- Input file hashes
-- Parameter sets
-- Git commit + branch + dirty state
-- Environment snapshot
-- Output references
+* Executed command
+* Input file hashes
+* Parameter sets
+* Git commit + branch + dirty state
+* Environment snapshot
+* Output references
 
-All metadata is stored under:
+Metadata is stored locally:
 
 ```
 .prov/runs/<run-id>/run.json
-
 ```
 
 Validated against:
 
-
 ```
 schemas/run.schema.json
-
 ```
 
 ---
 
 ### Diff
 
-Compare two runs and surface:
+Compare two recorded runs and surface:
 
-- Code differences
-- Input changes
-- Parameter drift
-- Environment variation
-- Output reference differences
+* Code differences
+* Input file changes
+* Parameter drift
+* Environment variation
+* Output reference differences
 
-Designed for:
+Useful for:
 
-- Research reproducibility
-- Model training comparison
-- Data pipeline validation
-- Audit preparation
-- “Why did this change?” investigations
-
----
-
-## What This Is Not
-
-- Not a workflow orchestrator
-- Not a CI system
-- Not a dashboard
-- Not a pipeline framework
-- Not a cloud service
-
-It is a small provenance control layer.
+* Data pipeline validation
+* Model training comparison
+* Research reproducibility
+* Compliance documentation
+* Investigating unexpected output changes
 
 ---
 
-## Typical Engagement Context
+## Architecture
 
-This tool is useful in environments where:
+* Local-first storage model
+* JSON-based run metadata
+* JSON schema validation
+* Deterministic run identifiers
+* Git metadata integration
+* Explicit separation of record vs comparison logic
 
-- Results must be explainable
-- Compliance requires traceability
-- Teams need reproducibility without adopting heavy orchestration
-- Execution transparency matters more than automation
+The tool intentionally avoids:
+
+* Workflow orchestration
+* CI/CD integration
+* Dashboard layers
+* Cloud dependencies
+
+It operates as a focused provenance control layer.
 
 ---
 
-## Status
+## Design Constraints
 
-Active development.
+* Explicit over implicit
+* Bounded scope
+* Verifiable structure
+* Minimal surface area
+* No hidden execution state
 
-Core run recording and diff logic implemented.
-CLI stabilization and documentation ongoing.
+The goal is structured traceability without introducing workflow complexity.
+
+---
+
+## Example Use Case
+
+1. Run an experiment or pipeline.
+2. Record inputs, parameters, environment, and outputs.
+3. Later, when results differ, run `diff` to identify structural drift instead of relying on memory.
+
+This reduces narrative debugging and replaces it with explicit evidence.
+
+---
+
+## Intended Scope
+
+Appropriate for:
+
+* Small teams
+* Research environments
+* ML experimentation
+* Compliance-sensitive workflows
+* Local data pipelines
+
+Not intended to replace CI/CD or workflow engines.
+
+---
+
+## Development
+
+* Python-based CLI
+* JSON schema validation
+* Git integration
+* Local filesystem storage
+* Designed for deterministic behavior
 
 ---
 
@@ -153,5 +127,10 @@ CLI stabilization and documentation ongoing.
 
 MIT License.
 
-This tool is intentionally simple, local-first, and permissive.
-If you use it in research, internal infrastructure, or production environments, attribution is appreciated.
+---
+
+## Author
+
+Alec
+Systems-focused technical operator working on reproducible workflows, drift detection, and structured execution traceability.
+

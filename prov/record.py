@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+from os.path import relpath
 
 from rich.console import Console
 
@@ -23,17 +24,25 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _path_for_json(p: Path) -> str:
+    # Preserve a stable, non-absolute representation.
+    # If it’s absolute, convert to a cwd-relative path (may include ..).
+    try:
+        if p.is_absolute():
+            return relpath(str(p), str(Path.cwd()))
+    except Exception:
+        pass
+    return str(p)
+
+
 def _append_to_index(prov_dir: Path, run_id: str, name: str, timestamp: str) -> None:
     idx = load_index(prov_dir)
-    run_rel = str(Path(Defaults.prov_dir_name) / Defaults.runs_dir_name / run_id)
-
     idx.data.setdefault("runs", [])
     idx.data["runs"].append(
         {
             "run_id": run_id,
             "name": name,
             "timestamp": timestamp,
-            "path": run_rel,
         }
     )
     idx.write()
@@ -73,27 +82,31 @@ def record_run(
         if not params.exists():
             raise FileNotFoundError(params)
         params_manifest = manifest_paths([params])
+        k = _path_for_json(params)
         params_info = {
-            "path": str(params),
+            "path": k,
             "bytes": params.stat().st_size,
-            "hash": params_manifest[str(params)]["hash"],
+            "hash": params_manifest[k]["hash"],
         }
 
     env = capture_minimal_env()
 
     run_record = {
+        "version": 1,
         "run_id": run_id,
         "timestamp": ts,
         "name": name,
         "status": "recorded_only",
         "inputs": inputs_manifest,
         "outputs": outputs_manifest,
-        "params": params_info,
         "environment": env,
         "warnings": warnings,
-        "git": {
-            "is_repo": git.is_repo,
-            "root": git.root,
+    }
+    if params_info is not None:
+        run_record["params"] = params_info
+    if git.is_repo:
+        run_record["git"] = {
+            "is_repo": True,
             "commit": git.commit,
             "branch": git.branch,
             "detached": git.detached,
@@ -101,7 +114,6 @@ def record_run(
             "untracked": git.untracked,
             "describe": git.describe,
         },
-    }
 
     (run_dir / "inputs.json").write_text(json.dumps(inputs_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (run_dir / "outputs.json").write_text(json.dumps(outputs_manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -1,357 +1,368 @@
-# Provenance Recorder JSON Schema
+# JSON Schemas (Contracts)
 
-This document describes the JSON output contracts for `prov show` and `prov diff`.
+This document defines the stable JSON contracts for provenance-recorder.
 
-Goals:
-- Stable, script-friendly output.
-- Minimal by default.
-- Optional payload sections are gated by explicit flags.
-- Avoid machine-specific data (e.g. absolute paths) unless explicitly requested.
+## Global invariants
 
-Notes:
-- JSON is emitted when `--format json` is used (or when a command’s `--raw` implies JSON).
-- Field order is not guaranteed; treat objects as maps.
+### No absolute paths
+No JSON field may contain an absolute filesystem path.
 
----
+- **Manifest keys** (inputs/outputs) must be **relative or non-absolute** strings.
+- `params.path` must be **relative or non-absolute**.
+- The index must not store absolute paths.
+- Git `root` must not be stored (and currently is not part of the contract).
 
-## Common conventions
+A “non-absolute” path may include `..` segments (e.g. `../data/in.txt`) if the user passed an absolute path that was converted to a cwd-relative form.
 
-### Runs & references
-- `run_id` is the canonical run directory name.
-- Tags are strings (user-controlled names), surfaced as arrays on objects where relevant.
-
-### Gating
-- `--paths` adds path-level detail in JSON.
-- `--hashes` implies `--paths` and changes the shape of `paths` in `prov show`.
-- `--warnings` adds warnings detail in JSON.
-- `--raw` prints the underlying stored `run.json` (unmodified) and exits.
-
-### Paths
-- JSON output should not include run directory paths by default.
-- If you add a future flag for paths (e.g. `--include-run-path`), document it here.
+### Versioning
+- `index.json.version` is `1`
+- `run.json.version` is `1`
+- CLI JSON outputs are versionless but follow the contracts below.
 
 ---
 
-## `prov show --format json`
+## `.prov/index.json`
 
-### Default JSON (no flags)
-Top-level keys MUST be exactly:
+### Purpose
+A lightweight index of recorded runs + a tag map.
 
-- `run`
-- `counts`
-- `environment`
-- `git`
-
-#### Shape
-
-```jsonc
+### Schema (v1)
+```json
 {
-  "run": {
-    "run_id": "2026-02-11T16-08-36Z_bbbbbb",
-    "name": "myrun",
-    "timestamp": "2026-02-11T16:08:36Z",
-    "tags": ["baseline", "t"]
-  },
-  "counts": {
-    "inputs": 2,
-    "outputs": 10,
-    "warnings": 1,
-    "has_params": true
-  },
-  "environment": {
-    "python_version": "3.12.0",
-    "platform": "linux-x86_64"
-  },
-  "git": {
-    // null when not recorded
+  "version": 1,
+  "runs": [
+    {
+      "run_id": "2026-02-11T16-08-36Z_bbbbbb",
+      "name": "my_run_name",
+      "timestamp": "2026-02-11T16:08:36Z"
+    }
+  ],
+  "tags": {
+    "baseline": "2026-02-11T16-08-36Z_bbbbbb"
   }
 }
 ````
 
-### `run`
+### Notes
 
-Required keys:
-
-* `run_id` (string)
-* `name` (string; may be empty)
-* `timestamp` (string; may be empty)
-* `tags` (array of strings; may be empty)
-
-### `counts`
-
-Required keys:
-
-* `inputs` (int)
-* `outputs` (int)
-* `warnings` (int)
-* `has_params` (bool)
-
-### `environment`
-
-Required keys:
-
-* `python_version` (string; may be empty)
-* `platform` (string; may be empty)
-
-### `git`
-
-* `git` is `null` if git metadata is not recorded in `run.json`.
-* If present, it is an object copied from `run.json` (no normalization required), but MUST remain JSON-serializable.
+* `runs[*]` must **not** contain a `path` field.
+* `timestamp` is ISO8601 UTC (recommended: `...Z`).
+* `tags` values are run IDs.
 
 ---
 
-### `prov show --format json --paths`
+## `.prov/runs/<run_id>/run.json`
 
-Adds a top-level `paths` key.
+### Purpose
 
-Top-level keys MUST be exactly:
+The canonical run record written by `prov record`.
 
-* `run`
-* `counts`
-* `environment`
-* `git`
-* `paths`
+### Schema (v1)
 
-`paths` shape depends on `--hashes`.
+#### Required top-level fields
 
-#### Without `--hashes`:
-
-```jsonc
+```json
 {
-  "paths": {
-    "inputs": ["data/in.txt", "data/new.txt"],
-    "outputs": ["out/result.txt"]
+  "version": 1,
+  "run_id": "2026-02-11T16-08-36Z_bbbbbb",
+  "timestamp": "2026-02-11T16:08:36Z",
+  "name": "my_run_name",
+  "status": "recorded_only",
+  "inputs": { "...": { "...": "..." } },
+  "outputs": { "...": { "...": "..." } },
+  "environment": { "...": "..." },
+  "warnings": [ "..." ]
+}
+```
+
+#### `inputs` / `outputs` manifests
+
+Manifests are objects keyed by **non-absolute** path strings.
+
+Each manifest entry has:
+
+```json
+{
+  "bytes": 1234,
+  "mtime_epoch": 1700000000,
+  "mtime_utc": "2026-02-11T16:08:36+00:00",
+  "hash": "sha256hex..."
+}
+```
+
+Example:
+
+```json
+"inputs": {
+  "data/in.txt": {
+    "bytes": 12,
+    "mtime_epoch": 1760000000,
+    "mtime_utc": "2026-02-11T16:08:36+00:00",
+    "hash": "abcd..."
   }
 }
 ```
 
-#### With `--hashes` (implies `--paths`):
+#### Optional `params`
 
-```jsonc
-{
-  "paths": {
-    "inputs": {"data/in.txt": "h_in_1"},
-    "outputs": {"out/result.txt": "h_out_1"}
-  }
+`params` is **omitted** when not provided.
+
+When present:
+
+```json
+"params": {
+  "path": "params.yaml",
+  "bytes": 456,
+  "hash": "sha256hex..."
 }
+```
+
+Constraints:
+
+* `params.path` must be **non-absolute**
+* `params.hash` is the hash of the params file contents
+
+#### Optional `git`
+
+`git` is **omitted** when git is not recorded (e.g. not in a repo).
+
+When present:
+
+```json
+"git": {
+  "is_repo": true,
+  "commit": "deadbeef",
+  "branch": "main",
+  "detached": false,
+  "dirty": false,
+  "untracked": 0,
+  "describe": "v0.1.0"
+}
+```
+
+Constraints:
+
+* `git.is_repo` is always `true` if this object is present.
+
+#### `environment`
+
+Minimal environment snapshot, currently:
+
+```json
+"environment": {
+  "python_version": "3.12.0",
+  "platform": "linux-x86_64"
+}
+```
+
+#### `warnings`
+
+Array of strings.
+Example:
+
+```json
+"warnings": [
+  "GIT_DIRTY: working tree has uncommitted changes",
+  "GIT_UNTRACKED: 3 untracked file(s)"
+]
 ```
 
 ---
 
-### `prov show --format json --warnings`
+## CLI JSON: `prov show --format json`
 
-Adds a top-level `warnings` key.
+### Minimal contract (default flags)
 
-Top-level keys MUST be exactly:
+Keys:
 
-* `run`
-* `counts`
-* `environment`
-* `git`
-* `warnings`
-
-`warnings` is always an array. Elements are passthrough from `run.json` and may be:
-
-* strings
-* objects
-* other JSON-serializable values (discouraged, but tolerated)
-
----
-
-### `prov show --raw`
-
-`--raw` prints the underlying stored `run.json` exactly as recorded and exits.
-
-* Output MUST be the raw run JSON object (whatever keys exist in the stored file).
-* No gating rules apply.
-* `--raw` implies JSON output.
-
----
-
-## `prov diff --format json`
-
-### Default JSON (no flags)
-
-Top-level keys MUST be exactly:
-
-* `a`
-* `b`
-* `summary`
-* `params`
-* `environment`
-* `git`
-
-#### Shape
-
-```jsonc
+```json
 {
-  "a": {
-    "run_id": "2026-02-09T14-06-45Z_aaaaaa",
-    "name": "abs_demo",
-    "tags": ["baseline2"]
-  },
-  "b": {
-    "run_id": "2026-02-11T16-08-36Z_bbbbbb",
-    "name": "t",
-    "tags": ["baseline", "t"]
-  },
-  "summary": {
-    "truth_changed": true,
-    "any_changed": true,
-    "counts": {
-      "inputs": {"added": 1, "removed": 0, "changed": 0},
-      "outputs": {"added": 0, "removed": 1, "changed": 0},
-      "params_changed": false,
-      "env_changed": true,
-      "git_changed": true,
-      "warnings_changed": true
-    }
-  },
-  "params": {"a": "h_params", "b": "h_params", "changed": false},
-  "environment": {
-    "a": {"python_version": "3.11.0", "platform": "linux-x86_64"},
-    "b": {"python_version": "3.12.0", "platform": "linux-x86_64"},
-    "changed": true
-  },
-  "git": {
-    "a": { "recorded": true, "...": "..." },
-    "b": { "recorded": true, "...": "..." },
-    "recorded": { "a": true, "b": true },
-    "changed": true,
-    "reasons": ["commit changed", "dirty changed"]
+  "run": { "...": "..." },
+  "counts": { "...": "..." },
+  "environment": { "...": "..." },
+  "git": { "...": "..." }  // may be null if not recorded in run.json
+}
+```
+
+`run`:
+
+```json
+"run": {
+  "run_id": "2026-02-11T16-08-36Z_bbbbbb",
+  "name": "t",
+  "timestamp": "2026-02-11T16:08:36Z",
+  "tags": ["baseline", "t"]
+}
+```
+
+`counts`:
+
+```json
+"counts": {
+  "inputs": 2,
+  "outputs": 1,
+  "warnings": 0,
+  "has_params": false
+}
+```
+
+`paths` (optional)
+Only present when `--paths` is set.
+
+If `--paths` without `--hashes`:
+
+```json
+"paths": {
+  "inputs": ["data/in.txt"],
+  "outputs": ["out/result.txt"]
+}
+```
+
+If `--paths --hashes`:
+
+```json
+"paths": {
+  "inputs": { "data/in.txt": "sha256..." },
+  "outputs": { "out/result.txt": "sha256..." }
+}
+```
+
+`warnings` (optional)
+Only present when `--warnings` is set:
+
+```json
+"warnings": [
+  "some warning"
+]
+```
+
+### Policy: `--abs-paths`
+
+`--abs-paths` is **rejected** for JSON output.
+
+---
+
+## CLI JSON: `prov diff --format json`
+
+### Minimal contract (default flags)
+
+Top-level keys:
+
+```json
+{
+  "a": { "...": "..." },
+  "b": { "...": "..." },
+  "summary": { "...": "..." },
+  "params": { "...": "..." },
+  "environment": { "...": "..." },
+  "git": { "...": "..." }
+}
+```
+
+`a` / `b`:
+
+```json
+"a": { "run_id": "A", "name": "abs_demo", "tags": ["baseline2"] }
+"b": { "run_id": "B", "name": "t", "tags": ["baseline"] }
+```
+
+`summary`:
+
+```json
+"summary": {
+  "truth_changed": true,
+  "any_changed": true,
+  "counts": {
+    "inputs": { "added": 1, "removed": 0, "changed": 0 },
+    "outputs": { "added": 0, "removed": 1, "changed": 0 },
+    "params_changed": false,
+    "env_changed": true,
+    "git_changed": true,
+    "warnings_changed": false
   }
 }
 ```
 
-### `a` / `b`
+`params`:
 
-Required keys:
+```json
+"params": { "a": "sha256...", "b": "sha256...", "changed": false }
+```
 
-* `run_id` (string)
-* `name` (string; may be empty)
-* `tags` (array of strings; may be empty)
+* `a`/`b` may be `null` when params not recorded on that side.
 
-### `summary`
+`environment`:
 
-Required keys:
-
-* `truth_changed` (bool)
-* `any_changed` (bool)
-* `counts` (object)
-
-`counts` required keys:
-
-* `inputs`: `{added:int, removed:int, changed:int}`
-* `outputs`: `{added:int, removed:int, changed:int}`
-* `params_changed` (bool)
-* `env_changed` (bool)
-* `git_changed` (bool)
-* `warnings_changed` (bool)
-
-### `params`
-
-Required keys:
-
-* `a` (string or null)
-* `b` (string or null)
-* `changed` (bool)
-
-### `environment`
-
-Required keys:
-
-* `a` (object)
-* `b` (object)
-* `changed` (bool)
-
-Where `a` and `b` contain:
-
-* `python_version` (string; may be empty)
-* `platform` (string; may be empty)
-
-### `git`
-
-Required keys:
-
-* `a` (object)
-* `b` (object)
-* `recorded` (object with keys `a`, `b` as booleans)
-* `changed` (bool)
-* `reasons` (array of strings)
-
-If a run does not record git metadata, its side SHOULD include `{ "recorded": false }`.
-
----
-
-### `prov diff --format json --paths`
-
-Adds top-level keys:
-
-* `inputs`
-* `outputs`
-
-Top-level keys MUST be exactly:
-
-* `a`
-* `b`
-* `summary`
-* `params`
-* `environment`
-* `git`
-* `inputs`
-* `outputs`
-
-`inputs` / `outputs` shape:
-
-```jsonc
-{
-  "inputs": {
-    "added": ["data/new.txt"],
-    "removed": [],
-    "changed": ["data/in.txt"]
-  },
-  "outputs": {
-    "added": [],
-    "removed": ["out/result.txt"],
-    "changed": []
-  }
+```json
+"environment": {
+  "a": { "python_version": "3.11.0", "platform": "linux-x86_64" },
+  "b": { "python_version": "3.12.0", "platform": "linux-x86_64" },
+  "changed": true
 }
 ```
 
----
+`git`:
 
-### `prov diff --format json --warnings`
-
-Adds a top-level `warnings` key.
-
-Top-level keys MUST be exactly:
-
-* `a`
-* `b`
-* `summary`
-* `params`
-* `environment`
-* `git`
-* `warnings`
-
-`warnings` shape:
-
-```jsonc
-{
-  "warnings": {
-    "a": ["...", {"code":"W001","message":"..."}],
-    "b": ["..."],
-    "changed": true
-  }
+```json
+"git": {
+  "a": { "recorded": true, "is_repo": true, "commit": "...", "describe": "...", "branch": "main", "detached": false, "dirty": false, "untracked": 0 },
+  "b": { "recorded": false },
+  "changed": false,
+  "reasons": ["not recorded (B)"],
+  "recorded": { "a": true, "b": false }
 }
 ```
 
+### Optional `inputs` / `outputs` sections
+
+Only included when `--paths` is set.
+
+```json
+"inputs": { "added": ["..."], "removed": ["..."], "changed": ["..."] },
+"outputs": { "added": ["..."], "removed": ["..."], "changed": ["..."] }
+```
+
+### Optional `warnings` section
+
+Only included when `--warnings` is set.
+
+```json
+"warnings": {
+  "a": ["warning text", "..."],
+  "b": ["warning text", "..."],
+  "changed": true
+}
+```
+
+### Policy: `--abs-paths`
+
+`--abs-paths` is **rejected** for JSON output.
+
 ---
 
-## Compatibility & versioning
+## Record-side JSON artifacts
 
-This schema is a contract. If it must change:
+`prov record` writes:
 
-* Prefer adding new optional keys behind new flags.
-* If a breaking change is required, bump the tool’s major version and update this document.
+* `.prov/runs/<run_id>/run.json` (canonical; schema above)
+* `.prov/runs/<run_id>/inputs.json` (same shape as `run.json.inputs`)
+* `.prov/runs/<run_id>/outputs.json` (same shape as `run.json.outputs`)
+
+`inputs.json` schema:
+
+```json
+{
+  "data/in.txt": { "bytes": 1, "mtime_epoch": 0, "mtime_utc": "...", "hash": "..." }
+}
+```
+
+`outputs.json` schema:
+
+```json
+{
+  "out/result.txt": { "bytes": 1, "mtime_epoch": 0, "mtime_utc": "...", "hash": "..." }
+}
+```
+
+All keys must be non-absolute paths.
 
